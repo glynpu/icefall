@@ -16,8 +16,6 @@ with open("conformer_ctc/lm_config.yaml") as f:
 
 evaluator = NNLMEvaluator.build_evaluator(**lm_args, device="cuda")
 
-res = evaluator.nll(
-    "conformer_ctc/data/transcripts/test_clean/text"
-)
+res = evaluator.nll("conformer_ctc/data/transcripts/test_clean/text")
 # ppl on test_clean is 89.71
 print(np.mean(res.nlls))

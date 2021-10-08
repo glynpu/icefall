@@ -27,6 +27,11 @@ import torch
 import torch.nn as nn
 from asr_datamodule import LibriSpeechAsrDataModule
 from conformer import Conformer
+import yaml
+
+# from espnet_utils.common import load_espnet_model_config
+# from espnet_utils.numericalizer import SpmNumericalizer
+from utils.nnlm_evaluator import NNLMEvaluator
 
 from icefall.bpe_graph_compiler import BpeCtcTrainingGraphCompiler
 from icefall.checkpoint import average_checkpoints, load_checkpoint
@@ -65,7 +70,7 @@ def get_parser():
     parser.add_argument(
         "--avg",
         type=int,
-        default=20,
+        default=1,
         help="Number of checkpoints to average. Automatically select "
         "consecutive checkpoints before the checkpoint specified by "
         "'--epoch'. ",
@@ -75,6 +80,7 @@ def get_parser():
         "--method",
         type=str,
         default="attention-decoder",
+        # default="nbest-rescoring",
         help="""Decoding method.
         Supported values are:
             - (1) 1best. Extract the best path from the decoding lattice as the
@@ -98,7 +104,7 @@ def get_parser():
     parser.add_argument(
         "--num-paths",
         type=int,
-        default=100,
+        default=1000,
         help="""Number of paths for n-best based decoding method.
         Used only when "method" is one of the following values:
         nbest, nbest-rescoring, attention-decoder, and nbest-oracle
@@ -311,6 +317,36 @@ def decode_one_batch(
         # TODO: pass `lattice` instead of `rescored_lattice` to
         # `rescore_with_attention_decoder`
 
+        # import pdb; pdb.set_trace()
+        # asr_train_config = '/ceph-ly/open-source/to_submit/clean_nnlm_espnet_snowfall/snowfall/egs/librispeech/asr/simple_v1/exp/kamo-naoyuki/librispeech_asr_train_asr_conformer6_n_fft512_hop_length256_raw_en_bpe5000_scheduler_confwarmup_steps40000_optim_conflr0.0025_sp_valid.acc.ave//config.yaml'
+        # args = load_espnet_model_config(asr_train_config)
+        # numericalizer = SpmNumericalizer(tokenizer_type='spm',
+        #                                  tokenizer_file=args.bpemodel,
+        #                                  token_list=args.token_list,
+        #                                  unk_symbol='<unk>')
+        # model_dir = '/ceph-ly/open-source/to_submit/clean_nnlm_espnet_snowfall/snowfall/egs/librispeech/asr/simple_v1/'
+        # lm_train_config = model_dir + 'exp/kamo-naoyuki/librispeech_asr_train_asr_conformer6_n_fft512_hop_length256_raw_en_bpe5000_scheduler_confwarmup_steps40000_optim_conflr0.0025_sp_valid.acc.ave//lm/config.yaml'
+        # lm_model_file = model_dir + 'exp/kamo-naoyuki/librispeech_asr_train_asr_conformer6_n_fft512_hop_length256_raw_en_bpe5000_scheduler_confwarmup_steps40000_optim_conflr0.0025_sp_valid.acc.ave//lm/valid.loss.ave_10best.pth'
+        device = "cuda"
+        # evaluator = EspnetNNLMEvaluator.build_model(lm_train_config,
+        #                                             lm_model_file,
+        #                                             device=device,
+        #                                             input_type='word_id',
+        #                                             numericalizer=numericalizer,
+        #                                             src_word_table=word_table)
+
+        with open("conformer_ctc/lm_config.yaml") as f:
+            lm_args = yaml.safe_load(f)
+            # TODO(Liyong Guo): make model definition configable
+            lm_args.pop("model_config")
+            evaluator = NNLMEvaluator.build_evaluator(
+                **lm_args,
+                device="cuda",
+                input_type="word_id",
+                src_word_table=word_table,
+            )
+            # evaluator = None
+
         best_path_dict = rescore_with_attention_decoder(
             lattice=rescored_lattice,
             num_paths=params.num_paths,
@@ -320,6 +356,7 @@ def decode_one_batch(
             sos_id=sos_id,
             eos_id=eos_id,
             lattice_score_scale=params.lattice_score_scale,
+            nnlm_evaluator=evaluator,
         )
     else:
         assert False, f"Unsupported decoding method: {params.method}"
@@ -408,8 +445,9 @@ def decode_dataset(
             results[lm_scale].extend(this_batch)
 
         num_cuts += len(batch["supervisions"]["text"])
+        # import pdb; pdb.set_trace()
 
-        if batch_idx % 100 == 0:
+        if batch_idx % 1 == 0:
             batch_str = f"{batch_idx}/{num_batches}"
 
             logging.info(
@@ -477,9 +515,9 @@ def main():
     logging.info("Decoding started")
     logging.info(params)
 
-    lexicon = Lexicon(params.lang_dir)
-    max_token_id = max(lexicon.tokens)
-    num_classes = max_token_id + 1  # +1 for the blank
+    # lexicon = Lexicon(params.lang_dir)
+    # max_token_id = max(lexicon.tokens)
+    # num_classes = max_token_id + 1  # +1 for the blank
 
     device = torch.device("cpu")
     if torch.cuda.is_available():
@@ -487,14 +525,17 @@ def main():
 
     logging.info(f"device: {device}")
 
-    graph_compiler = BpeCtcTrainingGraphCompiler(
-        params.lang_dir,
-        device=device,
-        sos_token="<sos/eos>",
-        eos_token="<sos/eos>",
-    )
-    sos_id = graph_compiler.sos_id
-    eos_id = graph_compiler.eos_id
+    # graph_compiler = BpeCtcTrainingGraphCompiler(
+    #     params.lang_dir,
+    #     device=device,
+    #     sos_token="<sos/eos>",
+    #     eos_token="<sos/eos>",
+    # )
+    # sos_id = graph_compiler.sos_id
+    # eos_id = graph_compiler.eos_id
+    num_classes = 5000
+    sos_id = 1
+    eos_id = 1
 
     HLG = k2.Fsa.from_dict(
         torch.load(f"{params.lang_dir}/HLG.pt", map_location="cpu")
@@ -557,7 +598,8 @@ def main():
     )
 
     if params.avg == 1:
-        load_checkpoint(f"{params.exp_dir}/epoch-{params.epoch}.pt", model)
+        # load_checkpoint(f"{params.exp_dir}/epoch-{params.epoch}.pt", model)
+        load_checkpoint(f"{params.exp_dir}/pretrained.pt", model)
     else:
         start = params.epoch - params.avg + 1
         filenames = []
@@ -587,13 +629,17 @@ def main():
     #   if test_set == 'test-clean': continue
     #
     test_sets = ["test-clean", "test-other"]
+    word_table = k2.SymbolTable.from_file(
+        "/ceph-ly/open-source/icefall/egs/librispeech/ASR/tmp/icefall_asr_librispeech_conformer_ctc/data/lang_bpe/words.txt"
+    )
     for test_set, test_dl in zip(test_sets, librispeech.test_dataloaders()):
         results_dict = decode_dataset(
             dl=test_dl,
             params=params,
             model=model,
             HLG=HLG,
-            word_table=lexicon.word_table,
+            # word_table=lexicon.word_table,
+            word_table=word_table,
             G=G,
             sos_id=sos_id,
             eos_id=eos_id,

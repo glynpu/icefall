@@ -900,6 +900,7 @@ def encoder_padding_mask(
     lengths = [((i - 1) // 2 - 1) // 2 for i in lengths]
     return make_pad_mask(lengths, max_len)
 
+
 def make_pad_mask(lengths: List[int], max_len: Optional[int] = None):
     """Make mask tensor representing padded part.
 

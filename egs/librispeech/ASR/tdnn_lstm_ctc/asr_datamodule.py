@@ -82,7 +82,7 @@ class LibriSpeechAsrDataModule(DataModule):
         group.add_argument(
             "--max-duration",
             type=int,
-            default=200.0,
+            default=10.0,
             help="Maximum pooled recordings duration (seconds) in a "
             "single batch. You can reduce it if it causes CUDA OOM.",
         )
@@ -125,7 +125,7 @@ class LibriSpeechAsrDataModule(DataModule):
         group.add_argument(
             "--on-the-fly-feats",
             type=str2bool,
-            default=False,
+            default=True,
             help="When enabled, use on-the-fly cut mixing and feature "
             "extraction. Will drop existing precomputed feature manifests "
             "if available.",
@@ -291,6 +291,7 @@ class LibriSpeechAsrDataModule(DataModule):
             cuts = [cuts]
 
         for cuts_test in cuts:
+            # import pdb; pdb.set_trace()
             logging.debug("About to create test dataset")
             test = K2SpeechRecognitionDataset(
                 input_strategy=OnTheFlyFeatures(
@@ -342,6 +343,7 @@ class LibriSpeechAsrDataModule(DataModule):
 
     @lru_cache()
     def test_cuts(self) -> List[CutSet]:
+        # import pdb; pdb.set_trace()
         test_sets = ["test-clean", "test-other"]
         cuts = []
         for test_set in test_sets:
