@@ -26,11 +26,9 @@ from lhotse import CutSet, Fbank, FbankConfig, load_manifest
 from lhotse.dataset import (
     BucketingSampler,
     CutConcatenate,
-    CutMix,
     K2SpeechRecognitionDataset,
     PrecomputedFeatures,
     SingleCutSampler,
-    SpecAugment,
 )
 from lhotse.dataset.input_strategies import OnTheFlyFeatures
 from torch.utils.data import DataLoader
@@ -195,7 +193,6 @@ class GigaSpeechAsrDataModule(DataModule):
                 input_strategy=OnTheFlyFeatures(
                     Fbank(FbankConfig(num_mel_bins=80))
                 ),
-                input_transforms=input_transforms,
                 return_cuts=self.args.return_cuts,
             )
 
