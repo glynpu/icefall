@@ -205,8 +205,7 @@ def main():
     LibriSpeechAsrDataModule.add_arguments(parser)
     args = parser.parse_args()
     args.exp_dir = Path(args.exp_dir)
-    # args.lang_dir = Path(args.lang_dir)
-    # args.lm_dir = Path(args.lm_dir)
+    args.input_strategy = "AudioSamples"
 
     params = get_params()
     params.update(vars(args))
@@ -215,10 +214,6 @@ def main():
     logging.info("Decoding started")
     logging.info(params)
 
-    # lexicon = Lexicon(params.lang_dir)
-    # max_token_id = max(lexicon.tokens)
-    # num_classes = max_token_id + 1  # +1 for the blank
-
     device = torch.device("cpu")
     if torch.cuda.is_available():
         device = torch.device("cuda", 0)
@@ -226,10 +221,12 @@ def main():
     logging.info(f"device: {device}")
 
     model = Wav2Vec2ForCTC.from_pretrained(
-        "facebook/wav2vec2-large-960h-lv60-self"
+        "facebook/wav2vec2-large-960h-lv60-self",
+        local_files_only=True,
     ).to("cuda")
     processor = Wav2Vec2Processor.from_pretrained(
-        "facebook/wav2vec2-large-960h-lv60-self"
+        "facebook/wav2vec2-large-960h-lv60-self",
+        local_files_only=True,
     )
     model.to(device)
     model.eval()

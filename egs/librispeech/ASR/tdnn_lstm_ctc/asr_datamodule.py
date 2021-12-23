@@ -179,7 +179,7 @@ class LibriSpeechAsrDataModule(DataModule):
         group.add_argument(
             "--input-strategy",
             type=str,
-            default=PrecomputedFeatures,
+            default=None,
             help="The number of training dataloader workers that "
             "collect the batches.",
         )
