@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import k2
+import kenlm
 import torch
 from model import Transducer
 
@@ -266,6 +267,9 @@ class Hypothesis:
     # The log prob of ys.
     # It contains only one entry.
     log_prob: torch.Tensor
+
+    last_start_idx: int
+    state: None # lm state
 
     @property
     def key(self) -> str:
@@ -637,6 +641,7 @@ def beam_search(
     model: Transducer,
     encoder_out: torch.Tensor,
     beam: int = 4,
+    lmr = None, # lm rescorer
 ) -> List[int]:
     """
     It implements Algorithm 1 in https://arxiv.org/pdf/1211.3711.pdf
@@ -677,7 +682,10 @@ def beam_search(
     t = 0
 
     B = HypothesisList()
-    B.add(Hypothesis(ys=[blank_id] * context_size, log_prob=0.0))
+
+    start_state= kenlm.State()
+    lmr.lm.BeginSentenceWrite(start_state)
+    B.add(Hypothesis(ys=[blank_id] * context_size, log_prob=0.0, last_start_idx=0, state=start_state))
 
     max_sym_per_utt = 20000
 
@@ -738,7 +746,7 @@ def beam_search(
             new_y_star_log_prob = y_star.log_prob + skip_log_prob
 
             # ys[:] returns a copy of ys
-            B.add(Hypothesis(ys=y_star.ys[:], log_prob=new_y_star_log_prob))
+            B.add(Hypothesis(ys=y_star.ys[:], log_prob=new_y_star_log_prob, last_start_idx=y_star.last_start_idx, state=y_star.state))
 
             # Second, process other non-blank labels
             values, indices = log_prob.topk(beam + 1)
@@ -747,7 +755,9 @@ def beam_search(
                     continue
                 new_ys = y_star.ys + [i]
                 new_log_prob = y_star.log_prob + v
-                A.add(Hypothesis(ys=new_ys, log_prob=new_log_prob))
+                tmp = Hypothesis(ys=new_ys, log_prob=new_log_prob, last_start_idx=y_star.last_start_idx, state=y_star.state)
+                lmr.rescore(tmp)
+                A.add(tmp)
 
             # Check whether B contains more than "beam" elements more probable
             # than the most probable in A

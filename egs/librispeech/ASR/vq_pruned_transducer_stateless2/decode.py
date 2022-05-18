@@ -63,6 +63,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import k2
+import kenlm
 import sentencepiece as spm
 import torch
 import torch.nn as nn
@@ -88,10 +89,17 @@ from icefall.utils import (
     write_error_stats,
 )
 
+from lm import LMRescorer
 
 def get_parser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        "--lm-weight",
+        type=float,
+        default=0.0,
     )
 
     parser.add_argument(
@@ -206,6 +214,7 @@ def decode_one_batch(
     sp: spm.SentencePieceProcessor,
     batch: dict,
     decoding_graph: Optional[k2.Fsa] = None,
+    lmr=None,
 ) -> Dict[str, List[List[str]]]:
     """Decode one batch and return the result in a dict. The dict has the
     following format:
@@ -298,6 +307,7 @@ def decode_one_batch(
                     model=model,
                     encoder_out=encoder_out_i,
                     beam=params.beam_size,
+                    lmr=lmr,
                 )
             else:
                 raise ValueError(
@@ -325,6 +335,7 @@ def decode_dataset(
     model: nn.Module,
     sp: spm.SentencePieceProcessor,
     decoding_graph: Optional[k2.Fsa] = None,
+    lmr=None,
 ) -> Dict[str, List[Tuple[List[str], List[str]]]]:
     """Decode dataset.
 
@@ -369,6 +380,7 @@ def decode_dataset(
             sp=sp,
             decoding_graph=decoding_graph,
             batch=batch,
+            lmr=lmr,
         )
 
         for name, hyps in hyps_dict.items():
@@ -399,7 +411,7 @@ def save_results(
     test_set_wers = dict()
     for key, results in results_dict.items():
         recog_path = (
-            params.res_dir / f"recogs-{test_set_name}-{key}-{params.suffix}.txt"
+            params.res_dir / f"lm_weight-{params.lm_weight}-recogs-{test_set_name}-{key}-{params.suffix}.txt"
         )
         store_transcripts(filename=recog_path, texts=results)
         logging.info(f"The transcripts are stored in {recog_path}")
@@ -407,11 +419,11 @@ def save_results(
         # The following prints out WERs, per-word error statistics and aligned
         # ref/hyp pairs.
         errs_filename = (
-            params.res_dir / f"errs-{test_set_name}-{key}-{params.suffix}.txt"
+            params.res_dir / f"lm_weight-{params.lm_weight}-errs-{test_set_name}-{key}-{params.suffix}.txt"
         )
         with open(errs_filename, "w") as f:
             wer = write_error_stats(
-                f, f"{test_set_name}-{key}", results, enable_log=True
+                f, f"lm_weight-{params.lm_weight}-{test_set_name}-{key}", results, enable_log=True
             )
             test_set_wers[key] = wer
 
@@ -479,6 +491,8 @@ def main():
     # <blk> is defined in local/train_bpe_model.py
     params.blank_id = sp.piece_to_id("<blk>")
     params.vocab_size = sp.get_piece_size()
+    LM = "/ceph-data2/ly/kenlm/train_lm/train.bin"
+    params.lm_path = f'{LM}'
 
     logging.info(params)
 
@@ -506,6 +520,10 @@ def main():
     model.eval()
     model.device = device
 
+    lm_model = kenlm.LanguageModel(LM)
+
+    lmr=LMRescorer(Path("./data/lang_bpe_500/"), blank_id = model.decoder.blank_id, lm=lm_model, weight=params.lm_weight)
+
     if params.decoding_method == "fast_beam_search":
         decoding_graph = k2.trivial_graph(params.vocab_size - 1, device=device)
     else:
@@ -532,6 +550,7 @@ def main():
             model=model,
             sp=sp,
             decoding_graph=decoding_graph,
+            lmr=lmr,
         )
 
         save_results(
