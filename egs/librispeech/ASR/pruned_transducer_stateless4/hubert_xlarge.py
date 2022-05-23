@@ -25,7 +25,7 @@ def _load_hubert_model(params: AttributeDict):
         }
     )
     model_path = Path(params.hubert_model_dir) / (
-        params.hubert_model_id + ".pt"
+        params.teacher_model_id + ".pt"
     )
     task = tasks.setup_task(cfg_task)
     processor = task.target_dictionary
@@ -91,7 +91,7 @@ class HubertXlargeFineTuned:
         )
 
         parser.add_argument(
-            "--hubert-model-id",
+            "--teacher-model-id",
             type=str,
             default="hubert_xtralarge_ll60k_finetune_ls960",
             help="""could be one of:
@@ -106,12 +106,6 @@ class HubertXlargeFineTuned:
             default=48,
         )
 
-        # Options about teacher embeddings eatraction.
-        parser.add_argument(
-            "--memory-layer",
-            type=int,
-            help="layer to extract teacher embeddings, 1-based.",
-        )
 
     # Modified from HubertModel.forward to extract all middle layers output
     def extract_layers_result(
@@ -154,6 +148,22 @@ class HubertXlargeFineTuned:
             padding_mask=padding_mask,
         )
         return layer_results
+
+    def extract_memory(self, batch):
+        supervisions = batch["supervisions"]
+        cut_list = supervisions["cut"]
+        assert all(c.start == 0 for c in cut_list)
+        layer_results = self.extract_layers_result(batch)
+        memory_embeddings = layer_results[params.memory_layer - 1][0]
+        encoder_memory = (
+            memory_embeddings.transpose(0, 1).to("cpu").numpy()
+        )  # N, T, C
+        N = encoder_memory.shape[0]
+        assert len(cut_list) == N
+        # 320 is from: 16,000 / 50 = sample_rate / hbuert output frame rate
+        num_frames = [supervisions["num_samples"][i] // 320 for i in range(N)]
+        return encoder_memory, num_frames
+
 
     def ctc_greedy_search(self, batch):
         """
