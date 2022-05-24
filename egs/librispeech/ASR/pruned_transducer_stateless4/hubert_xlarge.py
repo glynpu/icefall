@@ -70,7 +70,12 @@ class HubertXlargeFineTuned:
         """
         params = AttributeDict(
             {
-                "input_strategy": "AudioSamples",  # defined in asr_datamodule.py
+                # parameters defined in asr_datamodule.py
+                "input_strategy": "AudioSamples",
+                "enable_musan": False,
+                "enable_spec_aug": False,
+                "return_cuts": True,
+                "drop_last": False,
             }
         )
         return params
@@ -154,7 +159,7 @@ class HubertXlargeFineTuned:
         cut_list = supervisions["cut"]
         assert all(c.start == 0 for c in cut_list)
         layer_results = self.extract_layers_result(batch)
-        memory_embeddings = layer_results[params.memory_layer - 1][0]
+        memory_embeddings = layer_results[self.params.memory_layer - 1][0]
         encoder_memory = (
             memory_embeddings.transpose(0, 1).to("cpu").numpy()
         )  # N, T, C

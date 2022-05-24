@@ -153,11 +153,10 @@ def main():
     HubertXlargeFineTuned.add_arguments(parser)
     args = parser.parse_args()
 
-    hubert_params = HubertXlargeFineTuned.get_params()
     params = AttributeDict()
     params.update(vars(args))
     # reset some parameters needed by hubert.
-    params.update(hubert_params)
+    params.update(HubertXlargeFineTuned.get_params())
 
     params.res_dir = (
         params.exp_dir / f"ctc_greedy_search-{params.hubert_model_id}"

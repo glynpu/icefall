@@ -151,6 +151,12 @@ class LibriSpeechAsrDataModule:
             "shuffled for each epoch.",
         )
         group.add_argument(
+            "--drop-last",
+            type=str2bool,
+            default=True,
+            help="Whether to drop last batch. Used by sampler."
+        )
+        group.add_argument(
             "--return-cuts",
             type=str2bool,
             default=True,
@@ -306,7 +312,7 @@ class LibriSpeechAsrDataModule:
                 shuffle=self.args.shuffle,
                 num_buckets=self.args.num_buckets,
                 bucket_method="equal_duration",
-                drop_last=True,
+                drop_last=self.args.drop_last,
             )
         else:
             logging.info("Using SingleCutSampler.")
