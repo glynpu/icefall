@@ -1,7 +1,25 @@
+#!/usr/bin/env python3
+# Copyright 2022 Xiaomi Corporation (Author: Liyong Guo)
+#
+# See ../../../../LICENSE for clarification regarding multiple authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import torch
 from fairseq import (
@@ -52,7 +70,7 @@ class HubertXlargeFineTuned:
 
     A teacher model responsible for:
         1. load teacher model
-        2. extracting memory embeddings to train quantizer.
+        2. extracting embeddings to train quantizer.
         3. extract codebook indices
         4. verify it's performance with ctc_greedy_search method.
     """
@@ -76,17 +94,14 @@ class HubertXlargeFineTuned:
                 "enable_spec_aug": False,
                 "return_cuts": True,
                 "drop_last": False,
+                # parameters used by quantizer
+                "embedding_dim": 1280,
             }
         )
         return params
 
     @classmethod
     def add_arguments(cls, parser: argparse.ArgumentParser):
-        group = parser.add_argument_group(
-            title="HubertXlargeTeacher related options",
-            description="These options are used to build the HubertXlargeTeacher model.",
-        )
-
         # Options about model loading.
         parser.add_argument(
             "--hubert-model-dir",
@@ -110,7 +125,6 @@ class HubertXlargeFineTuned:
             type=int,
             default=48,
         )
-
 
     # Modified from HubertModel.forward to extract all middle layers output
     def extract_layers_result(
@@ -154,21 +168,20 @@ class HubertXlargeFineTuned:
         )
         return layer_results
 
-    def extract_memory(self, batch):
+    def extract_embedding(self, batch) -> Tuple[torch.tensor, List[int]]:
         supervisions = batch["supervisions"]
         cut_list = supervisions["cut"]
         assert all(c.start == 0 for c in cut_list)
         layer_results = self.extract_layers_result(batch)
-        memory_embeddings = layer_results[self.params.memory_layer - 1][0]
-        encoder_memory = (
-            memory_embeddings.transpose(0, 1).to("cpu").numpy()
-        )  # N, T, C
-        N = encoder_memory.shape[0]
+        embeddings = layer_results[self.params.embedding_layer - 1][0]
+        encoder_embedding = embeddings.transpose(0, 1)  # N, T, C
+        N = encoder_embedding.shape[0]
         assert len(cut_list) == N
         # 320 is from: 16,000 / 50 = sample_rate / hbuert output frame rate
-        num_frames = [supervisions["num_samples"][i] // 320 for i in range(N)]
-        return encoder_memory, num_frames
-
+        num_frames = [
+            supervisions["num_samples"][i].item() // 320 for i in range(N)
+        ]
+        return encoder_embedding, num_frames
 
     def ctc_greedy_search(self, batch):
         """

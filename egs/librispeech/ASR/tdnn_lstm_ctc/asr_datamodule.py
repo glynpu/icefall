@@ -154,7 +154,7 @@ class LibriSpeechAsrDataModule:
             "--drop-last",
             type=str2bool,
             default=True,
-            help="Whether to drop last batch. Used by sampler."
+            help="Whether to drop last batch. Used by sampler.",
         )
         group.add_argument(
             "--return-cuts",

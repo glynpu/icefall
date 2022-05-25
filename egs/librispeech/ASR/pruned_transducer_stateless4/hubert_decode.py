@@ -23,8 +23,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
-import torch.nn as nn
-from fairseq.data.data_utils import post_process
 
 from asr_datamodule import LibriSpeechAsrDataModule
 from hubert_xlarge import HubertXlargeFineTuned
@@ -159,10 +157,10 @@ def main():
     params.update(HubertXlargeFineTuned.get_params())
 
     params.res_dir = (
-        params.exp_dir / f"ctc_greedy_search-{params.hubert_model_id}"
+        params.exp_dir / f"ctc_greedy_search-{params.teacher_model_id}"
     )
 
-    setup_logger(f"{params.res_dir}/log-ctc_greedy_search")
+    setup_logger(f"{params.res_dir}/log/log-ctc_greedy_search")
     logging.info("Decoding started")
     logging.info(params)
 
