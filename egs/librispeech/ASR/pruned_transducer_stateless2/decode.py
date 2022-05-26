@@ -246,9 +246,10 @@ def decode_one_batch(
     supervisions = batch["supervisions"]
     feature_lens = supervisions["num_frames"].to(device)
 
-    encoder_out, encoder_out_lens = model.encoder(
+    layer_results, encoder_out_lens = model.encoder(
         x=feature, x_lens=feature_lens
     )
+    encoder_out = layer_results[-1]
     hyps = []
 
     if params.decoding_method == "fast_beam_search":
