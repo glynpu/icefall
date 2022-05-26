@@ -25,7 +25,7 @@ from typing import Any, Dict, Optional
 
 import torch
 from lhotse import CutSet, Fbank, FbankConfig, load_manifest
-from lhotse.dataset import (
+from lhotse.dataset import (  # noqa F401 for PrecomputedFeatures
     BucketingSampler,
     CutConcatenate,
     CutMix,
@@ -34,7 +34,10 @@ from lhotse.dataset import (
     SingleCutSampler,
     SpecAugment,
 )
-from lhotse.dataset.input_strategies import AudioSamples, OnTheFlyFeatures
+from lhotse.dataset.input_strategies import (  # noqa F401 For AudioSamples
+    AudioSamples,
+    OnTheFlyFeatures,
+)
 from lhotse.utils import fix_random_seed
 from torch.utils.data import DataLoader
 
@@ -276,9 +279,7 @@ class LibriSpeechAsrDataModule:
 
         logging.info("About to create train dataset")
         train = K2SpeechRecognitionDataset(
-            input_strategy=AudioSamples()
-            if self.args.input_strategy == "AudioSamples"
-            else PrecomputedFeatures(),
+            input_strategy=eval(self.args.input_strategy)(),
             cut_transforms=transforms,
             input_transforms=input_transforms,
             return_cuts=self.args.return_cuts,

@@ -48,10 +48,9 @@ export CUDA_VISIBLE_DEVICES="0,1,2,3"
   --world-size 4 \
   --num-epochs 30 \
   --start-epoch 1 \
-  --use-fp16 1 \
   --exp-dir pruned_transducer_stateless4/exp \
-  --full-libri 1 \
-  --max-duration 550
+  --full-libri 0 \
+  --max-duration 300
 
 """
 
@@ -240,7 +239,7 @@ def get_parser():
         "--codebook-loss-scale",
         type=float,
         default=0.1,
-        help="The scale of codebook loss."
+        help="The scale of codebook loss.",
     )
 
     parser.add_argument(
@@ -400,7 +399,9 @@ def get_encoder_model(params: AttributeDict) -> nn.Module:
         nhead=params.nhead,
         dim_feedforward=params.dim_feedforward,
         num_encoder_layers=params.num_encoder_layers,
-        middle_output_layer=params.distillation_layer if params.enable_distiallation else None,
+        middle_output_layer=params.distillation_layer
+        if params.enable_distiallation
+        else None,
     )
     return encoder
 
@@ -438,7 +439,9 @@ def get_transducer_model(params: AttributeDict) -> nn.Module:
         decoder_dim=params.decoder_dim,
         joiner_dim=params.joiner_dim,
         vocab_size=params.vocab_size,
-        num_codebooks=params.num_codebooks if params.enable_distiallation else 0,
+        num_codebooks=params.num_codebooks
+        if params.enable_distiallation
+        else 0,
     )
     return model
 

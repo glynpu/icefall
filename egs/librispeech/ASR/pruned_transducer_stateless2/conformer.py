@@ -91,8 +91,8 @@ class Conformer(EncoderInterface):
         output_layers = []
         if middle_output_layer is not None:
             assert (
-                    middle_output_layer >= 0
-                    and middle_output_layer < num_encoder_layers
+                middle_output_layer >= 0
+                and middle_output_layer < num_encoder_layers
             )
             output_layers.append(middle_output_layer)
 
@@ -140,7 +140,6 @@ class Conformer(EncoderInterface):
         layer_results = self.encoder(
             x, pos_emb, src_key_padding_mask=mask, warmup=warmup
         )  # (T, N, C)
-
 
         return layer_results, lengths
 

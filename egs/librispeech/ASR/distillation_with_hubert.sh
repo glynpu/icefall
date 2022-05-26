@@ -1,5 +1,5 @@
-stage=3
-export CUDA_VISIBLE_DEVICES="0,1"
+stage=$1
+export CUDA_VISIBLE_DEVICES="2,3,4,5"
 
 
 if [ $stage -eq 0 ]; then
@@ -39,7 +39,7 @@ if [ $stage -eq 1 ]; then
   # Expect WERs:
   # [test-clean-ctc_greedy_search] %WER 2.04% [1075 / 52576, 92 ins, 104 del, 879 sub ]
   # [test-other-ctc_greedy_search] %WER 3.71% [1942 / 52343, 152 ins, 126 del, 1664 sub ]
-  ./vq_pruned_transducer_stateless4/hubert_decode.py
+  ./pruned_transducer_stateless4/hubert_decode.py
 fi
 
 if [ $stage -eq 2 ]; then

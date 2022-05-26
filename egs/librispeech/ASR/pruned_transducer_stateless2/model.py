@@ -25,6 +25,7 @@ from icefall.utils import add_sos
 
 from quantization.prediction import JointCodebookLoss
 
+
 class Transducer(nn.Module):
     """It implements https://arxiv.org/pdf/1211.3711.pdf
     "Sequence Transduction with Recurrent Neural Networks"
@@ -129,11 +130,13 @@ class Transducer(nn.Module):
 
         layer_results, x_lens = self.encoder(x, x_lens, warmup=warmup)
         encoder_out = layer_results[-1]
-        middle_layer_output =  layer_results[0]
+        middle_layer_output = layer_results[0]
         if self.training and codebook_indexes is not None:
             assert hasattr(self, "codebook_loss_net")
             if codebook_indexes.shape[1] != middle_layer_output.shape[1]:
-                codebook_indexes = self.concat_sucessive_codebook_indexes(middle_layer_output, codebook_indexes)
+                codebook_indexes = self.concat_sucessive_codebook_indexes(
+                    middle_layer_output, codebook_indexes
+                )
             codebook_loss = self.codebook_loss_net(
                 middle_layer_output, codebook_indexes
             )
@@ -218,7 +221,9 @@ class Transducer(nn.Module):
         return (simple_loss, pruned_loss, codebook_loss)
 
     @staticmethod
-    def concat_sucessive_codebook_indexes(middle_layer_output, codebook_indexes):
+    def concat_sucessive_codebook_indexes(
+        middle_layer_output, codebook_indexes
+    ):
         # Output rate of hubert is 50 frames per second,
         # while that of current encoder is 25.
         # Following code handling two issues:
@@ -234,7 +239,7 @@ class Transducer(nn.Module):
         #   output is concatenated together.
         t_expected = middle_layer_output.shape[1]
         N, T, C = codebook_indexes.shape
-    
+
         # Handling issue 1.
         if T >= t_expected * 2:
             codebook_indexes = codebook_indexes[:, : t_expected * 2, :]

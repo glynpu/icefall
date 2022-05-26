@@ -44,7 +44,7 @@ def get_parser():
 def get_world_size():
     warn_message = (
         "It's better to use GPU to extrac codebook indices"
-        + "Please set with commonds like: export CUDA_VISIBLE_DEVICES=0,1,2,3"
+        "Please set with commonds like: export CUDA_VISIBLE_DEVICES=0,1,2,3"
     )
     assert (
         torch.cuda.is_available() and "CUDA_VISIBLE_DEVICES" in os.environ

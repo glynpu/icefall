@@ -18,6 +18,7 @@
 
 import argparse
 import copy
+import glob
 import logging
 import os
 from functools import cached_property
@@ -59,6 +60,8 @@ class CodebookIndexExtractor:
 
         self.init_dirs()
         setup_logger(f"{self.vq_dir}/log-vq_extraction")
+        self.ori_manifest_dir = "./data/fbank/"
+        self.dst_manifest_dir = "./data/vq_fbank/"
 
     def init_dirs(self):
         # vq_dir is the root dir for quantizer:
@@ -239,19 +242,24 @@ class CodebookIndexExtractor:
         Only train-* subsets are extracted codebook indexes from.
         The reset subsets are just a link from ./data/fbank.
         """
-        reusable_subsets = [
-            "dev-clean",
-            "dev-other",
-            "musan",
-            "test-clean",
-            "test-other",
+
+        def is_train(manifest: str) -> bool:
+            for train_subset in ["clean-100", "clean-360", "other-500"]:
+                if train_subset in manifest:
+                    return True
+            return False
+
+        reusable_manifests = [
+            subset
+            for subset in glob.glob(f"{self.ori_manifest_dir}/*json.gz")
+            if not is_train(subset)
         ]
-        for subset in reusable_subsets:
-            ori_manifest_path = Path(
-                f"./data/fbank/cuts_{subset}.json.gz"
-            ).resolve()
+        for manifest_path in reusable_manifests:
+            ori_manifest_path = Path(manifest_path).resolve()
             dst_manifest_path = Path(
-                f"./data/vq_fbank/cuts_{subset}.json.gz"
+                manifest_path.replace(
+                    self.ori_manifest_dir, self.dst_manifest_dir
+                )
             ).resolve()
             if not dst_manifest_path.exists():
                 os.symlink(ori_manifest_path, dst_manifest_path)
