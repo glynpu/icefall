@@ -330,20 +330,20 @@ class CodebookIndexExtractor:
                         encoder_embedding,
                         num_frames,
                     ) = self.teacher_model.extract_embedding(batch)
-                    codebook_indices = self.quantizer.encode(encoder_embedding)
+                    codebook_indexes = self.quantizer.encode(encoder_embedding)
                     # [N, T, C]
-                    codebook_indices = codebook_indices.to("cpu").numpy()
-                    assert np.min(codebook_indices) >= 0
-                    assert np.max(codebook_indices) < 256
+                    codebook_indexes = codebook_indexes.to("cpu").numpy()
+                    assert np.min(codebook_indexes) >= 0
+                    assert np.max(codebook_indexes) < 256
                     supervisions = batch["supervisions"]
                     cut_list = supervisions["cut"]
-                    assert len(cut_list) == codebook_indices.shape[0]
+                    assert len(cut_list) == codebook_indexes.shape[0]
                     assert all(c.start == 0 for c in supervisions["cut"])
 
                     for idx, cut in enumerate(cut_list):
-                        cut.codebook_indices = writer.store_array(
+                        cut.codebook_indexes = writer.store_array(
                             key=cut.id,
-                            value=codebook_indices[idx][: num_frames[idx]],
+                            value=codebook_indexes[idx][: num_frames[idx]],
                             frame_shift=0.02,
                             temporal_dim=0,
                             start=0,

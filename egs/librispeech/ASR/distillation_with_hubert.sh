@@ -1,5 +1,5 @@
-stage=0
-export CUDA_VISIBLE_DEVICES="0,1,5,7"
+stage=3
+export CUDA_VISIBLE_DEVICES="0,1"
 
 
 if [ $stage -eq 0 ]; then
@@ -73,16 +73,14 @@ if [ $stage -eq 3 ]; then
   # Note: it's better to set spec-aug-time-warpi-factor=-1
   WORLD_SIZE=$(echo ${CUDA_VISIBLE_DEVICES} | awk '{n=split($1, _, ","); print n}')
   ./pruned_transducer_stateless4/train.py \
-    --codebook-loss-scale 0.1 \
-    --num-codebooks=${bytes_per_frame} \
-    --start-epoch 0 \
+    --manifest-dir ./data/vq_fbank \
+    --enable-distiallation True \
     --master-port 12358 \
-    --manifest-dir ${cdidx_manifests_dir} \
-    --full-libri 0 \
+    --full-libri False \
     --spec-aug-time-warp-factor -1 \
     --max-duration 300 \
     --world-size ${WORLD_SIZE} \
-    --num-epochs 20 \
+    --num-epochs 20
 fi
 
 if [ $stage -eq 4 ]; then
